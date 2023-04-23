@@ -5,6 +5,7 @@ using Amazon.Lambda.Core;
 using Amazon.Lambda.SNSEvents;
 using ReviewBooking_Sidecar.Models;
 
+[assembly:LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
 namespace ReviewBooking_Sidecar;
 
 public class BookingStatusUpdater
@@ -25,17 +26,18 @@ public class BookingStatusUpdater
                 continue;
             }
 
-            var queryResult = table.Query(new QueryOperationConfig
+            var queryResult = await table.Query(new QueryOperationConfig
             {
                 Filter = new QueryFilter("Id", QueryOperator.Equal, eventBody.BookingId),
                 IndexName = "Id-index"
-            });
+            }).GetRemainingAsync();
 
-            var document = queryResult.Matches.FirstOrDefault();
+            
+            var document = queryResult.FirstOrDefault();
             if (document != null)
             {
                 document["Status"] = eventBody.Status;
-                await table.UpdateItemAsync(document, eventBody.BookingId);
+                await table.UpdateItemAsync(document, document["UserId"].ToString(),eventBody.BookingId);
             }
             else
             {
